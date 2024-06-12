@@ -7,13 +7,18 @@ import (
 
 func main() {
 
+	const rootFilepath = "."
 	const port = "8080"
 
-	// Create a handler
+	// Create a ServeMux
 	serveMux := http.NewServeMux()
 
-	// Create a server
-	server := http.Server{
+	// Add a handler for the root path
+	// By default, FileServer will look for index.html
+	serveMux.Handle("/", http.FileServer(http.Dir(rootFilepath)))
+
+	// Create a pointer to a server
+	server := &http.Server{
 		Addr:    ":" + port,
 		Handler: serveMux,
 	}
@@ -25,4 +30,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
