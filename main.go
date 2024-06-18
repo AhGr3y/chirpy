@@ -80,6 +80,7 @@ func main() {
 
 	// Register handler for users endpoint
 	serveMux.HandleFunc("POST /api/users", apiCfg.handlerUsersPost)
+	serveMux.HandleFunc("POST /api/login", apiCfg.handlerUsersLogin)
 
 	// Create a pointer to a server
 	server := &http.Server{

@@ -5,17 +5,18 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ahgr3y/chirpy/internal/database"
+	"github.com/ahgr3y/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerUsersPost(w http.ResponseWriter, r *http.Request) {
 
 	// To store JSON data from request
 	type parameters struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
-	// Parse JSON Chirp to parameters
+	// Parse JSON to parameters
 	decoder := json.NewDecoder(r.Body)
 	param := parameters{}
 	err := decoder.Decode(&param)
@@ -25,16 +26,66 @@ func (cfg *apiConfig) handlerUsersPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Hash the password
+	hashedPassword, err := auth.HashPassword(param.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
 	// Save chirp to database
-	userObj, err := cfg.DB.CreateUser(param.Email)
+	user, err := cfg.DB.CreateUser(param.Email, string(hashedPassword))
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating user")
 	}
 
+	type validResp struct {
+		ID    int    `json:"id"`
+		Email string `json:"email"`
+	}
+
 	// Respond valid response
-	respondWithJSON(w, http.StatusCreated, database.User{
-		ID:    userObj.ID,
-		Email: userObj.Email,
+	respondWithJSON(w, http.StatusCreated, validResp{
+		ID:    user.ID,
+		Email: user.Email,
+	})
+
+}
+
+func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
+
+	// To store JSON data from request
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	// Parse JSON to parameters
+	decoder := json.NewDecoder(r.Body)
+	param := parameters{}
+	err := decoder.Decode(&param)
+	if err != nil {
+		log.Printf("Error decoding JSON: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	// Authenticate user
+	user, err := cfg.DB.AuthenticateUser(param.Email, param.Password)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized access")
+	}
+
+	type validResp struct {
+		ID    int    `json:"id"`
+		Email string `json:"email"`
+	}
+
+	// Respond valid response
+	respondWithJSON(w, http.StatusOK, validResp{
+		ID:    user.ID,
+		Email: user.Email,
 	})
 
 }
