@@ -8,14 +8,24 @@ import (
 	"os"
 
 	"github.com/ahgr3y/chirpy/internal/database"
+	"github.com/joho/godotenv"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
+	jwtSecret      string
 }
 
 func main() {
+
+	// Load environment variables
+	// by default, gotdotenv will look for a file named .env
+	// in the current directory
+	godotenv.Load()
+
+	// load the JWT
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	// Set up debug flag
 	dbg := flag.Bool("debug", false, "Enable debug mode")
@@ -50,6 +60,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		DB:             db,
+		jwtSecret:      jwtSecret,
 	}
 
 	// Create a ServeMux
@@ -80,6 +91,7 @@ func main() {
 
 	// Register handler for users endpoint
 	serveMux.HandleFunc("POST /api/users", apiCfg.handlerUsersPost)
+	serveMux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
 	serveMux.HandleFunc("POST /api/login", apiCfg.handlerUsersLogin)
 
 	// Create a pointer to a server

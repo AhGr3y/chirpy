@@ -64,6 +64,9 @@ func hasDuplicateEmail(dbStructure DBStructure, email string) bool {
 // GetUser retrieves a single user by id
 func (db *DB) GetUser(id int) (User, error) {
 
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
 	// Retrieve dbStructure from database
 	dbStructure, err := db.loadDB()
 	if err != nil {
@@ -98,9 +101,37 @@ func (db *DB) AuthenticateUser(email string, password string) (User, error) {
 			if err != nil {
 				return User{}, err
 			}
+
 			return user, nil
 		}
 	}
 
 	return User{}, os.ErrNotExist
+}
+
+// UpdateUser updates user's email and/or password
+func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
+
+	// Updated user
+	user := User{
+		ID:       id,
+		Email:    email,
+		Password: password,
+	}
+
+	// Retrieve database
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	// Upload user to database
+	dbStructure.Users[id] = user
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, err
+	}
+
+	// Return updated user
+	return user, nil
 }
