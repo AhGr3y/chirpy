@@ -9,10 +9,34 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ahgr3y/chirpy/internal/auth"
 	"github.com/ahgr3y/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
+// handlerPostChirp stores the chirp in the request body
+// and saves it to the database.
+// Ensures that only authenticated user can post chirps.
+func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
+
+	// Extract token from request header
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	// Validate signature of token
+	// and retrieve user id if token is valid
+	idString, err := auth.ExtractIDFromToken(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error extracting id from token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Convert idString to int type
+	userID, err := strconv.Atoi(string(idString))
+	if err != nil {
+		log.Printf("Error converting idString to int type: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
 
 	// To store JSON data from request
 	type chirpStructure struct {
@@ -22,7 +46,7 @@ func (cfg *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 	// Parse JSON Chirp to chirpStructure
 	decoder := json.NewDecoder(r.Body)
 	chirpStruct := chirpStructure{}
-	err := decoder.Decode(&chirpStruct)
+	err = decoder.Decode(&chirpStruct)
 	if err != nil {
 		log.Printf("Error decoding JSON: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
@@ -36,18 +60,20 @@ func (cfg *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type validResp struct {
+		AuthorID    int    `json:"author_id"`
 		ID          int    `json:"id"`
 		CleanedBody string `json:"body"`
 	}
 
 	// Save chirp to database
-	chirpObj, err := cfg.DB.CreateChirp(cleanChirp)
+	chirpObj, err := cfg.DB.CreateChirp(userID, cleanChirp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong while creating chirp")
 	}
 
 	// Respond valid response
 	respondWithJSON(w, http.StatusCreated, validResp{
+		AuthorID:    userID,
 		ID:          chirpObj.ID,
 		CleanedBody: cleanChirp,
 	})
@@ -67,8 +93,9 @@ func (cfg *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 	chirps := []database.Chirp{}
 	for _, dbChirp := range dbChirps {
 		chirps = append(chirps, database.Chirp{
-			ID:   dbChirp.ID,
-			Body: dbChirp.Body,
+			AuthorID: dbChirp.AuthorID,
+			ID:       dbChirp.ID,
+			Body:     dbChirp.Body,
 		})
 	}
 
@@ -87,6 +114,7 @@ func (cfg *apiConfig) handlerChirpGetByID(w http.ResponseWriter, r *http.Request
 	stringID := r.PathValue("chirpID")
 	requestedID, err := strconv.Atoi(stringID)
 	if err != nil {
+		log.Printf("Error converting stringID to int: %s", err)
 		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
 		return
 	}
@@ -147,4 +175,49 @@ func validateChirp(body string) (string, error) {
 
 	return cleaned, nil
 
+}
+
+// handlerDeleteChirpByID deletes a Chirp in database with
+// the associated ID in the request URL.
+// Ensures that only authenticated and authorized user can delete chirp.
+func (cfg *apiConfig) handlerDeleteChirpByID(w http.ResponseWriter, r *http.Request) {
+
+	// Extract token from request header
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	// Validate signature of token
+	// and retrieve user id if token is valid
+	idString, err := auth.ExtractIDFromToken(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error extracting id from token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Convert idString to int type
+	userID, err := strconv.Atoi(string(idString))
+	if err != nil {
+		log.Printf("Error converting idString to int type: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	// Get user's requested chirpID from URL path
+	stringID := r.PathValue("chirpID")
+	chirpID, err := strconv.Atoi(stringID)
+	if err != nil {
+		log.Printf("Error converting stringID to int: %s", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID")
+		return
+	}
+
+	// Delete chirp.
+	err = cfg.DB.DeleteChirp(userID, chirpID)
+	if err != nil {
+		log.Printf("Error deleting chirp: %s", err)
+		respondWithError(w, http.StatusForbidden, "Unauthorized to delete chirp")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

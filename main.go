@@ -83,9 +83,10 @@ func main() {
 	serveMux.HandleFunc("/api/reset", apiCfg.handlerResetServerHits)
 
 	// Register handler to manage chirps
-	serveMux.HandleFunc("POST /api/chirps", apiCfg.handlerChirpPost)
+	serveMux.HandleFunc("POST /api/chirps", apiCfg.handlerPostChirp)
 	serveMux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpGet)
 	serveMux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpGetByID)
+	serveMux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirpByID)
 
 	// Register handler to manage users
 	serveMux.HandleFunc("POST /api/users", apiCfg.handlerUsersPost)

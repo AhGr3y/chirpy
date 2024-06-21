@@ -1,32 +1,38 @@
 package database
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	AuthorID int    `json:"author_id"`
+	ID       int    `json:"id"`
+	Body     string `json:"body"`
 }
 
-// CreateChirp creates a new chirp and saves it to disk
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+// CreateChirp creates a Chirp using body
+// and saves it to the database.
+func (db *DB) CreateChirp(userID int, body string) (Chirp, error) {
 
-	// Load database
+	// Load database.
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
 	}
 
-	// Get unique id of new Chirp
-	id := len(dbStructure.Chirps) + 1
+	// Generate unique id for Chirp.
+	chirpID := len(dbStructure.Chirps) + 1
 
-	// Create a new Chirp
+	// Initialize Chirp.
 	chirp := Chirp{
-		ID:   id,
-		Body: body,
+		AuthorID: userID,
+		ID:       chirpID,
+		Body:     body,
 	}
 
-	// Save chirp to database
-	dbStructure.Chirps[id] = chirp
+	// Save chirp to database.
+	dbStructure.Chirps[chirpID] = chirp
 	err = db.writeDB(dbStructure)
 	if err != nil {
 		return Chirp{}, err
@@ -35,7 +41,7 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	return chirp, nil
 }
 
-// GetChirps returns all chirps in the database
+// GetChirps returns all chirps in the database.
 func (db *DB) GetChirps() ([]Chirp, error) {
 
 	// Load DBStructure
@@ -55,8 +61,8 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
-// GetChirp retrieves a single Chirp by ID
-func (db *DB) GetChirp(id int) (Chirp, error) {
+// GetChirp retrieves a single Chirp by chirp ID.
+func (db *DB) GetChirp(chirpID int) (Chirp, error) {
 
 	// Retrieve dbStructure from database
 	dbStructure, err := db.loadDB()
@@ -65,10 +71,52 @@ func (db *DB) GetChirp(id int) (Chirp, error) {
 	}
 
 	// Retrieve chirp from dbStructure
-	chirp, exist := dbStructure.Chirps[id]
+	chirp, exist := dbStructure.Chirps[chirpID]
 	if !exist {
 		return Chirp{}, os.ErrNotExist
 	}
 
 	return chirp, nil
+}
+
+// DeleteChirp deletes chirp with chirpID by user with userID.
+// Sorts the remaining chirps to prevent ID conflict by
+// future Chirps created.
+func (db *DB) DeleteChirp(userID int, chirpID int) error {
+
+	// Load database.
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	// Ensure Chirp can only be deleted by owner.
+	chirpToDelete, err := db.GetChirp(chirpID)
+	if err != nil {
+		return err
+	}
+	if chirpToDelete.AuthorID != userID {
+		return errors.New("unauthorized to delete chirp")
+	}
+
+	delete(dbStructure.Chirps, chirpID)
+
+	// Re-assign chirp id for remaining chirps in database.
+	db.ReassignChirpID(dbStructure.Chirps)
+
+	// Update database.
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) ReassignChirpID(chirps map[int]Chirp) {
+
+	for i, chirp := range chirps {
+		chirp.ID = i + 1
+	}
+
 }

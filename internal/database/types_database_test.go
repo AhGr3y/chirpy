@@ -20,8 +20,24 @@ func TestWriteGetChirps(t *testing.T) {
 		t.Errorf("Expecting an empty slice of Chirps")
 	}
 
-	// Create a Chirp
-	chirpOne, err := db.CreateChirp("This is the first chirp.")
+	// Load database.
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Generate unique id for Chirp.
+	chirpID := len(dbStructure.Chirps) + 1
+
+	// Initialize Chirp.
+	chirp := Chirp{
+		ID:   chirpID,
+		Body: "This is the first chirp.",
+	}
+
+	// Save chirp to database.
+	dbStructure.Chirps[chirpID] = chirp
+	err = db.writeDB(dbStructure)
 	if err != nil {
 		t.Error(err)
 	}
@@ -36,11 +52,11 @@ func TestWriteGetChirps(t *testing.T) {
 	if len(chirps) != 1 {
 		t.Errorf("Expecting length of 1.")
 	}
-	if chirps[0].ID != chirpOne.ID {
-		t.Errorf("%v != %v: Expecting both ID to be 1.", chirps[0].ID, chirpOne.ID)
+	if chirps[0].ID != chirp.ID {
+		t.Errorf("%v != %v: Expecting both ID to be 1.", chirps[0].ID, chirp.ID)
 	}
-	if chirps[0].Body != chirpOne.Body {
-		t.Errorf("%v != %v: Expecting both body to be 'This is the first chirp.'", chirps[0].Body, chirpOne.Body)
+	if chirps[0].Body != chirp.Body {
+		t.Errorf("%v != %v: Expecting both body to be 'This is the first chirp.'", chirps[0].Body, chirp.Body)
 	}
 
 }

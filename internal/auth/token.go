@@ -27,6 +27,8 @@ func NewJWT(id int, secretKey string) (string, error) {
 	return signedJWT, nil
 }
 
+// ExtractIDFromToken validates token using secretKey.
+// Returns id of user if token is valid.
 func ExtractIDFromToken(token string, secretKey string) (string, error) {
 
 	claimsStruct := jwt.RegisteredClaims{}
