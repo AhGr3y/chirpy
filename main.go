@@ -89,7 +89,7 @@ func main() {
 
 	// Register handler to manage chirps
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.handlerPostChirp)
-	serveMux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpGet)
+	serveMux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	serveMux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpGetByID)
 	serveMux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirpByID)
 

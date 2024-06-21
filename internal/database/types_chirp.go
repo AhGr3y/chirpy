@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"os"
+	"sort"
 )
 
 type Chirp struct {
@@ -56,6 +57,28 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	// Fill chirps with Chirps from dbStructure
 	for _, chirp := range dbStructure.Chirps {
 		chirps = append(chirps, chirp)
+	}
+
+	return chirps, nil
+}
+
+// GetChirps returns all chirps created by user with userID in the database.
+func (db *DB) GetChirpsByID(userID int) ([]Chirp, error) {
+
+	// Load DBStructure
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return []Chirp{}, err
+	}
+
+	// Empty slice to store Chirps
+	chirps := []Chirp{}
+
+	// Fill chirps with Chirps from dbStructure
+	for _, chirp := range dbStructure.Chirps {
+		if chirp.AuthorID == userID {
+			chirps = append(chirps, chirp)
+		}
 	}
 
 	return chirps, nil
@@ -117,6 +140,25 @@ func (db *DB) ReassignChirpID(chirps map[int]Chirp) {
 
 	for i, chirp := range chirps {
 		chirp.ID = i + 1
+	}
+
+}
+
+// SortChirpByID sorts chirps in ascending order by ID.
+func SortChirpsByID(chirps []Chirp, sortBy string) {
+
+	// Sort in ascending order
+	if sortBy == "asc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].ID < chirps[j].ID
+		})
+	}
+
+	// Sort in descending order
+	if sortBy == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].ID > chirps[j].ID
+		})
 	}
 
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -80,8 +79,10 @@ func (cfg *apiConfig) handlerPostChirp(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// handlerChirpGet responds with a JSON of all chirps in database in ascending order
-func (cfg *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
+// handlerGetChirps responds with a JSON of all chirps in database in ascending order.
+// If author_id query parameter is provided, handlerGetChirps will respond with
+// all chirps created by author_id.
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 
 	// Retrieve chirps from database
 	dbChirps, err := cfg.DB.GetChirps()
@@ -91,18 +92,42 @@ func (cfg *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 
 	// Create a copy of dbChirps
 	chirps := []database.Chirp{}
-	for _, dbChirp := range dbChirps {
-		chirps = append(chirps, database.Chirp{
-			AuthorID: dbChirp.AuthorID,
-			ID:       dbChirp.ID,
-			Body:     dbChirp.Body,
-		})
+
+	// Check if request parameter contains author_id
+	idString := r.URL.Query().Get("author_id")
+
+	// Retrieve chirps by id.
+	if idString != "" {
+
+		authorID, err := strconv.Atoi(idString)
+		if err != nil {
+			log.Printf("Error converting string to int: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+
+		chirps, err = cfg.DB.GetChirpsByID(authorID)
+		if err != nil {
+			log.Printf("Error retrieving chirps: %s", err)
+			return
+		}
+	} else {
+		for _, dbChirp := range dbChirps {
+			chirps = append(chirps, database.Chirp{
+				AuthorID: dbChirp.AuthorID,
+				ID:       dbChirp.ID,
+				Body:     dbChirp.Body,
+			})
+		}
 	}
 
-	// Sort chirps in ascending order of id
-	sort.Slice(chirps, func(i, j int) bool {
-		return chirps[i].ID < chirps[j].ID
-	})
+	// Check if request parameter contains sort
+	sortBy := r.URL.Query().Get("sort")
+	if sortBy == "" {
+		sortBy = "asc"
+	}
+
+	database.SortChirpsByID(chirps, sortBy)
 
 	respondWithJSON(w, http.StatusOK, chirps)
 }
