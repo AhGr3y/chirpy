@@ -71,28 +71,30 @@ func main() {
 	fileserverHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(rootFilepath))))
 	serveMux.Handle("/app/*", fileserverHandler)
 
-	// Register handler for healthz endpoint
+	// Register handler for checking server readiness
 	serveMux.HandleFunc("/api/healthz", handlerReadinessGet)
 	serveMux.HandleFunc("POST /api/healthz", handlerReadinessPost)
 	serveMux.HandleFunc("DELETE /api/healthz", handlerReadinessDelete)
 
-	// Register handler for metrics endpoint
+	// Register handler to manage api metrics
 	serveMux.HandleFunc("/admin/metrics", apiCfg.handlerGetServerHits)
 	serveMux.HandleFunc("POST /admin/metrics", apiCfg.handlerPostServerHits)
 	serveMux.HandleFunc("DELETE /admin/metrics", apiCfg.handlerDeleteServerHits)
-
-	// Register handler for reset endpoint
 	serveMux.HandleFunc("/api/reset", apiCfg.handlerResetServerHits)
 
-	// Register handler for chirps endpoint
+	// Register handler to manage chirps
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.handlerChirpPost)
 	serveMux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpGet)
 	serveMux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpGetByID)
 
-	// Register handler for users endpoint
+	// Register handler to manage users
 	serveMux.HandleFunc("POST /api/users", apiCfg.handlerUsersPost)
 	serveMux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
 	serveMux.HandleFunc("POST /api/login", apiCfg.handlerUsersLogin)
+
+	// Register handler to manage user tokens
+	serveMux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshToken)
+	serveMux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeRefreshToken)
 
 	// Create a pointer to a server
 	server := &http.Server{

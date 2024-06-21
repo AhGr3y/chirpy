@@ -110,7 +110,7 @@ func (db *DB) AuthenticateUser(email string, password string) (User, error) {
 }
 
 // UpdateUser updates user's email and/or password
-func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
+func (db *DB) UpdateUserEmailPassword(id int, email string, password string) (User, error) {
 
 	// Updated user
 	user := User{
@@ -134,4 +134,22 @@ func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
 
 	// Return updated user
 	return user, nil
+}
+
+func (db *DB) UpdateUserToDatabase(user User) error {
+
+	// Retrieve database
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	// Update user to database
+	dbStructure.Users[user.ID] = user
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

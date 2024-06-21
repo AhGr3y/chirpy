@@ -73,7 +73,7 @@ func TestUpdateUser(t *testing.T) {
 		t.Error("Failed to create user")
 	}
 
-	user, err := db.UpdateUser(3, "ron@wizards.com", "iloveclowns")
+	user, err := db.UpdateUserEmailPassword(3, "ron@wizards.com", "iloveclowns")
 	if err != nil {
 		t.Error("Failed to update user")
 	}

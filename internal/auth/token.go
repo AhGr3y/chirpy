@@ -8,13 +8,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func NewJWT(id int, expiresInSeconds int, secretKey string) (string, error) {
+func NewJWT(id int, secretKey string) (string, error) {
 
 	// Create a JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer:    "chirpy",
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Second * time.Duration(expiresInSeconds))),
+		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Second * 3600)),
 		Subject:   strconv.Itoa(id),
 	})
 
