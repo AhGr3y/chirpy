@@ -10,7 +10,7 @@ import (
 	"github.com/ahgr3y/chirpy/internal/auth"
 )
 
-func (cfg *apiConfig) handlerUsersPost(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// To store JSON data from request
 	type parameters struct {
@@ -45,14 +45,16 @@ func (cfg *apiConfig) handlerUsersPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type validResp struct {
-		ID    int    `json:"id"`
-		Email string `json:"email"`
+		ID          int    `json:"id"`
+		Email       string `json:"email"`
+		IsChirpyRed bool   `json:"is_chirpy_red"`
 	}
 
 	// Respond valid response
 	respondWithJSON(w, http.StatusCreated, validResp{
-		ID:    user.ID,
-		Email: user.Email,
+		ID:          user.ID,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed,
 	})
 
 }
@@ -102,6 +104,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	type validResp struct {
 		ID           int    `json:"id"`
 		Email        string `json:"email"`
+		IsChirpyRed  bool   `json:"is_chirpy_red"`
 		Token        string `json:"token"`
 		RefreshToken string `json:"refresh_token"`
 	}
@@ -110,6 +113,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusOK, validResp{
 		ID:           user.ID,
 		Email:        user.Email,
+		IsChirpyRed:  user.IsChirpyRed,
 		Token:        signedJWT,
 		RefreshToken: refreshToken.Token,
 	})
@@ -155,6 +159,14 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Get user from id.
+	user, err := cfg.DB.GetUser(id)
+	if err != nil {
+		log.Printf("Error getting user: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
 	// Hash the password
 	hashedPassword, err := auth.HashPassword(param.Password)
 	if err != nil {
@@ -164,7 +176,7 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Update user email and password
-	user, err := cfg.DB.UpdateUserEmailPassword(id, param.Email, hashedPassword)
+	updatedUser, err := cfg.DB.UpdateUserEmailPassword(id, param.Email, hashedPassword, user.IsChirpyRed)
 	if err != nil {
 		log.Printf("Error updating user: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
@@ -172,13 +184,15 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type validResp struct {
-		ID    int    `json:"id"`
-		Email string `json:"email"`
+		ID          int    `json:"id"`
+		Email       string `json:"email"`
+		IsChirpyRed bool   `json:"is_chirpy_red"`
 	}
 
 	respondWithJSON(w, http.StatusOK, validResp{
-		ID:    user.ID,
-		Email: user.Email,
+		ID:          updatedUser.ID,
+		Email:       updatedUser.Email,
+		IsChirpyRed: updatedUser.IsChirpyRed,
 	})
 }
 
@@ -217,6 +231,68 @@ func (cfg *apiConfig) handlerRevokeRefreshToken(w http.ResponseWriter, r *http.R
 	if err != nil {
 		log.Printf("Error revoking refresh token: %s", err)
 		respondWithError(w, http.StatusBadRequest, "Something went wrong")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handlerUpgradeUser upgrades the user provided by the polka webhook once
+// payment is complete.
+// Ensure only Polka is able to use this API.
+func (cfg *apiConfig) handlerUpgradeUser(w http.ResponseWriter, r *http.Request) {
+
+	// Extract apiKey from request header
+	apiKey, err := auth.ExtractApiKey(r.Header)
+	if err != nil {
+		log.Printf("Error extracting api key: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find api key")
+		return
+	}
+
+	// Ensure request comes from Polka
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized request")
+		return
+	}
+
+	// To store JSON data from request
+	type parameters struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID int `json:"user_id"`
+		} `json:"data"`
+	}
+
+	// Parse JSON to parameters
+	decoder := json.NewDecoder(r.Body)
+	param := parameters{}
+	err = decoder.Decode(&param)
+	if err != nil {
+		log.Printf("Error decoding JSON: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	// Validate event.
+	if param.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Check if user exist.
+	_, err = cfg.DB.GetUser(param.Data.UserID)
+	if err != nil {
+		log.Printf("Error getting user: %s", err)
+		respondWithError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Upgrade user status
+	err = cfg.DB.UpgradeUser(param.Data.UserID)
+	if err != nil {
+		log.Printf("Error upgrading user: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 

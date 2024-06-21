@@ -8,9 +8,10 @@ import (
 )
 
 type User struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	ID          int    `json:"id"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 // CreateUser creates a User and saves it in the database
@@ -32,9 +33,10 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 
 	// Create a new User
 	user := User{
-		ID:       id,
-		Email:    email,
-		Password: password,
+		ID:          id,
+		Email:       email,
+		Password:    password,
+		IsChirpyRed: false,
 	}
 
 	// Save user to database
@@ -110,13 +112,14 @@ func (db *DB) AuthenticateUser(email string, password string) (User, error) {
 }
 
 // UpdateUser updates user's email and/or password
-func (db *DB) UpdateUserEmailPassword(id int, email string, password string) (User, error) {
+func (db *DB) UpdateUserEmailPassword(id int, email string, password string, isChirpyRed bool) (User, error) {
 
 	// Updated user
 	user := User{
-		ID:       id,
-		Email:    email,
-		Password: password,
+		ID:          id,
+		Email:       email,
+		Password:    password,
+		IsChirpyRed: isChirpyRed,
 	}
 
 	// Retrieve database
@@ -145,6 +148,34 @@ func (db *DB) UpdateUserToDatabase(user User) error {
 	}
 
 	// Update user to database
+	dbStructure.Users[user.ID] = user
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpgradeUser promotes user with userID to a Chirpy Red user.
+func (db *DB) UpgradeUser(userID int) error {
+
+	// Load database.
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+
+	// Retrieve user from database.
+	user, err := db.GetUser(userID)
+	if err != nil {
+		return err
+	}
+
+	// Upgrade user to Chirpy Red status
+	user.IsChirpyRed = true
+
+	// Update database.
 	dbStructure.Users[user.ID] = user
 	err = db.writeDB(dbStructure)
 	if err != nil {

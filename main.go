@@ -15,6 +15,7 @@ type apiConfig struct {
 	fileserverHits int
 	DB             *database.DB
 	jwtSecret      string
+	polkaKey       string
 }
 
 func main() {
@@ -26,6 +27,9 @@ func main() {
 
 	// load the JWT
 	jwtSecret := os.Getenv("JWT_SECRET")
+
+	// Load polkaKey
+	polkaKey := os.Getenv("POLKA_KEY")
 
 	// Set up debug flag
 	dbg := flag.Bool("debug", false, "Enable debug mode")
@@ -61,6 +65,7 @@ func main() {
 		fileserverHits: 0,
 		DB:             db,
 		jwtSecret:      jwtSecret,
+		polkaKey:       polkaKey,
 	}
 
 	// Create a ServeMux
@@ -89,9 +94,10 @@ func main() {
 	serveMux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirpByID)
 
 	// Register handler to manage users
-	serveMux.HandleFunc("POST /api/users", apiCfg.handlerUsersPost)
+	serveMux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 	serveMux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUser)
 	serveMux.HandleFunc("POST /api/login", apiCfg.handlerUsersLogin)
+	serveMux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerUpgradeUser)
 
 	// Register handler to manage user tokens
 	serveMux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshToken)
